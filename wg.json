@@ -1,0 +1,13 @@
+{
+    "server_config": {
+        "Address": "10.0.0.1/24",
+        "PostUp": "iptables -A FORWARD -i %i -j ACCEPT; iptables -t nat -A POSTROUTING -o enp10s0 -j MASQUERADE",
+        "PostDown":"iptables -D FORWARD -i %i -j ACCEPT; iptables -t nat -D POSTROUTING -o enp10s0 -j MASQUERADE",
+        "ListenPort": 51820,
+        "PrivateKey": ""
+    },
+    "client_config":{
+        "clients": 0,
+        
+    }
+}
