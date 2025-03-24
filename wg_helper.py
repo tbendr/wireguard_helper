@@ -92,6 +92,10 @@ def main():
                 if len(new_peer_config) == len(peer_config):
                     print(f"No peer found with ID {peer_id_to_delete}.")
                 else:
+                    # **Reassign IDs starting from 2**
+                    for index, peer in enumerate(sorted(new_peer_config, key=lambda x: x["id"]), start=2):
+                        peer["id"] = index
+
                     config_data["peers"] = new_peer_config
 
                     # Save the updated peer list back to the config file
@@ -100,8 +104,7 @@ def main():
                     
                     print(f"\nPeer with ID {peer_id_to_delete} has been deleted.")
 
-            continue
-
+                    write_json_to_config_file()
 
             continue
 
@@ -227,6 +230,7 @@ def write_json_to_config_file():
 
     for peer in peers:
         peer_id = peer["id"]
+        peer_name = peer["name"]
         peer_pub_key = peer["PublicKey"]
         peer_priv_key = peer["PrivateKey"]
 
@@ -235,13 +239,13 @@ def write_json_to_config_file():
         AllowedIPs = 10.0.0.{peer_id}/24
         """
 
-        with open(f"peer{peer_id}.conf", "w") as f:
+        with open(f"peer{peer_id}-{peer_name}.conf", "w") as f:
             f.write(f"""[Interface]
         PrivateKey = {peer_priv_key}
         Address = 10.0.0.{peer_id}
         DNS = 1.1.1.1
 
-[Peer]
+    [Peer]
         PublicKey = {server_pub_key}
         Endpoint = {server_endpoint}
         AllowedIPs = 0.0.0.0/0
@@ -259,6 +263,18 @@ def write_json_to_config_file():
 def setup_wg0conf():
     config_data = load_config(config_file)
     server_config = config_data.get("server", {})
+
+    server_software = config_data.get("server_software", {})
+    ufw_is_installed = server_software.get("ufw", "")
+
+    if ufw_is_installed == None:
+        ufw_output = subprocess.run(["dpkg", "-l"], text=True, stdout=subprocess.PIPE).stdout
+        if "ufw" in ufw_output:
+            server_software["ufw"] = True
+            subprocess.run(["ufw","allow", "51820"])
+        else:
+            server_software["ufw"] = False
+
 
     server_priv_key = config_data.get("server", {}).get("PrivateKey", "")
     server_pub_key = config_data.get("server", {}).get("PublicKey", "")
@@ -301,6 +317,7 @@ def setup_wg0conf():
             print("Made no changes to server keys")
     
     config_data["server"] = server_config
+    config_data["server_software"] = server_software
 
     with open(config_file, "w") as f:
         json.dump(config_data, f, indent=4)
@@ -308,6 +325,12 @@ def setup_wg0conf():
     write_json_to_config_file()
     
     print("wg0.conf generated for server")
+
+
+def restart_wg():
+    subprocess.run(["sudo", "systemctl", "restart", "wg-quick@wg0"], text=True).strip()
+
+
 
 
 
