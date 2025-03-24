@@ -28,7 +28,7 @@ def main():
 
         print("\nPlease type a number for what you would like to do")
         print("1: Install & initilize wireguard")
-        print("2: View peers")
+        print("2: View & edit peers")
         print("3: Add new peer")
 
         print("q: Exit the script")
@@ -62,12 +62,47 @@ def main():
 
         
         elif choice == "2":
-            print("\nServer Config")
+            print("\nPeer info")
 
             config_data = load_config(config_file)
-            server_config = config_data.get("server", {})
+            peer_config = config_data.get("peers", [])
 
-            print(f"Endpoint: {server_config.get('Endpoint', '-')}")
+            print("Peers")
+            for peer in peer_config:
+                peer_id = peer["id"]
+                peer_name = peer["name"]
+                peer_public_key = peer["PublicKey"]
+
+                print(f"ID: {peer_id} - Name: {peer_name} - PublicKey: {peer_public_key}")
+            
+            if input("\nWould you like to delete any peers? (y/n): ") == "y":
+                peer_choice = input("Type peer ID to delete, type 'q' to go back to main menu: ")
+                if peer_choice == "q":
+                    continue
+
+                try:
+                    peer_id_to_delete = int(peer_choice)
+                except ValueError:
+                    print("Invalid ID. Please enter a numeric ID.")
+                    continue
+
+                # Filter out the peer with the matching ID
+                new_peer_config = [peer for peer in peer_config if peer["id"] != peer_id_to_delete]
+
+                if len(new_peer_config) == len(peer_config):
+                    print(f"No peer found with ID {peer_id_to_delete}.")
+                else:
+                    config_data["peers"] = new_peer_config
+
+                    # Save the updated peer list back to the config file
+                    with open(config_file, "w") as f:
+                        json.dump(config_data, f, indent=4)
+                    
+                    print(f"\nPeer with ID {peer_id_to_delete} has been deleted.")
+
+            continue
+
+
             continue
 
         elif choice == "3":
@@ -182,36 +217,35 @@ def write_json_to_config_file():
 
 
     wg_config_content = f"""[Interface]
-Address = 10.0.0.1/24
-SaveConfig = true
-PostUp = iptables -A FORWARD -i %i -j ACCEPT; iptables -t nat -A POSTROUTING -o enp10s0 -j MASQUERADE
-PostDown = iptables -D FORWARD -i %i -j ACCEPT; iptables -t nat -D POSTROUTING -o enp10s0 -j MASQUERADE
-ListenPort = 51820
-PrivateKey = {server_priv_key}
-    """
+        Address = 10.0.0.1/24
+        SaveConfig = true
+        PostUp = iptables -A FORWARD -i %i -j ACCEPT; iptables -t nat -A POSTROUTING -o enp10s0 -j MASQUERADE
+        PostDown = iptables -D FORWARD -i %i -j ACCEPT; iptables -t nat -D POSTROUTING -o enp10s0 -j MASQUERADE
+        ListenPort = 51820
+        PrivateKey = {server_priv_key}
+        """
 
     for peer in peers:
         peer_id = peer["id"]
         peer_pub_key = peer["PublicKey"]
         peer_priv_key = peer["PrivateKey"]
 
-        wg_config_content += f"""
-[Peer]
-PublicKey = {peer_pub_key}
-AllowedIPs = 10.0.0.{peer_id}/24
+        wg_config_content += f"""[Peer]
+        PublicKey = {peer_pub_key}
+        AllowedIPs = 10.0.0.{peer_id}/24
         """
 
         with open(f"peer{peer_id}.conf", "w") as f:
             f.write(f"""[Interface]
-PrivateKey = {peer_priv_key}
-Address = 10.0.0.{peer_id}
-DNS = 1.1.1.1
+        PrivateKey = {peer_priv_key}
+        Address = 10.0.0.{peer_id}
+        DNS = 1.1.1.1
 
 [Peer]
-PublicKey = {server_pub_key}
-Endpoint = {server_endpoint}
-AllowedIPs = 0.0.0.0/0
-PersistentKeepAlive = 25
+        PublicKey = {server_pub_key}
+        Endpoint = {server_endpoint}
+        AllowedIPs = 0.0.0.0/0
+        PersistentKeepAlive = 25
             """)
 
 
