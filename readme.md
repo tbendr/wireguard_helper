@@ -17,6 +17,9 @@ Requirements:
 
 
 To install this script:
+
 1 - Download the python file to anywhere
+
 2 - Run the file with python `python3 wg_helper.py`
+
 3 - Follow the menu options by installing it with (1) then adding a peer (2)
