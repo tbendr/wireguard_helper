@@ -1,6 +1,6 @@
 # SeaBee's wireguard helper script
 
-This is a python script to make the installation and management of wireguard easier
+This is a python script to make the installation and management of wireguard server side easier
 
 This script can:
 - Install wireguard
