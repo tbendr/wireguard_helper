@@ -92,10 +92,6 @@ def main():
                 if len(new_peer_config) == len(peer_config):
                     print(f"No peer found with ID {peer_id_to_delete}.")
                 else:
-                    # **Reassign IDs starting from 2**
-                    for index, peer in enumerate(sorted(new_peer_config, key=lambda x: x["id"]), start=2):
-                        peer["id"] = index
-
                     config_data["peers"] = new_peer_config
 
                     # Save the updated peer list back to the config file
@@ -112,12 +108,18 @@ def main():
             config_data = load_config(config_file)
             peers = config_data.get("peers", [])
 
-            # Get current IDs and add 1
-            if peers:
-                max_id = max(client["id"] for client in peers)
-            else:
-                max_id = 1
-            new_id = max_id + 1
+            existing_ids = sorted(peer["id"] for peer in peers)
+
+            # Find available ID by checking gaps
+            existing_ids = sorted(peer["id"] for peer in peers)  # Get all assigned IDs, sorted
+
+            # Start from 2, find the first missing number
+            new_id = 2
+            for id in existing_ids:
+                if id == new_id:
+                    new_id += 1
+                else:
+                    break  # Found a gap, use it
 
             # Generate new keys
             private_key = subprocess.check_output(["wg", "genkey"], text=True).strip()
