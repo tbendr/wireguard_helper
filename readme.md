@@ -8,3 +8,4 @@ So far, this script can:
 - Generate peer keys
 - Edit server endpoint
 - Save all the data to a json config file
+- Delete peer info
