@@ -10,7 +10,7 @@ config_file = "wg_helper.json"
 
 # Default configuration
 default_config = {
-    "server_variables": {
+    "server_vars": {
         "ufw": None,
         "network_interface":""
     },
