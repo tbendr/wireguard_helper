@@ -269,16 +269,18 @@ def setup_wg0conf():
     config_data = load_config()
     server_config = config_data.get("server", {})
 
-    server_software = config_data.get("server_software", {})
-    ufw_is_installed = server_software.get("ufw", "")
+    server_vars = config_data.get("server_vars", {})
+    ufw_is_installed = server_vars.get("ufw", "")
 
     if ufw_is_installed == None:
         ufw_output = subprocess.run(["dpkg", "-l"], text=True, stdout=subprocess.PIPE).stdout
         if "ufw" in ufw_output:
-            server_software["ufw"] = True
-            subprocess.run(["ufw","allow", "51820"])
+            server_vars["ufw"] = True
+            subprocess.run(["ufw", "allow", "51820"])
         else:
-            server_software["ufw"] = False
+            server_vars["ufw"] = False
+        
+        server_config["server_vars"] = ufw_is_installed
 
 
     server_priv_key = config_data.get("server", {}).get("PrivateKey", "")
