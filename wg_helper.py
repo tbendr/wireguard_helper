@@ -10,6 +10,10 @@ config_file = "/etc/wireguard/wg_helper.json"
 
 # Default configuration
 default_config = {
+    "server_variables": {
+        "ufw": None,
+        "network_interface":""
+    },
     "server": {
         "Endpoint": "",
         "ListenPort": 51820,
@@ -47,6 +51,19 @@ def main():
                 if not os.path.exists(config_file):
                     print(f"Config file {config_file} not found. Creating now...")
                     create_config_file(config_file)
+
+                config_data = load_config(config_file)
+                server_vars = config_data.get("server_vars", {})
+
+                server_network_interface = subprocess.run("ip -o -4 route show to default | awk '{print $5}'", shell=True, capture_output=True, text=True).stdout.strip()
+
+                server_vars["network_interface"] = server_network_interface
+                config_data["server_vars"] = server_vars
+
+                with open(f"{config_dir}/{config_file}", "w") as f:
+                    json.dump(config_data, f, indent=4)
+
+
 
             else:
                 print("wireguard already installed")
@@ -92,7 +109,7 @@ def main():
                     config_data["peers"] = new_peer_config
 
                     # Save the updated peer list back to the config file
-                    with open(config_file, "w") as f:
+                    with open(f"{config_dir}/{config_file}", "w") as f:
                         json.dump(config_data, f, indent=4)
                     
                     print(f"\nPeer with ID {peer_id_to_delete} has been deleted.")
@@ -134,7 +151,7 @@ def main():
             config_data["peers"] = peers
 
             # Save new peer
-            with open(config_file, "w") as f:
+            with open(f"{config_dir}/{config_file}", "w") as f:
                 json.dump(config_data, f, indent=4)
             
             print("New peer added")
@@ -180,7 +197,7 @@ def install_wireguard():
 
 def create_config_file(config_file):
     try:
-        with open(config_file, "w") as f:
+        with open(f"{config_dir}/{config_file}", "w") as f:
             json.dump(default_config, f, indent=4)
             print(f"Config file {config_file} created successfully.")
     except IOError as e:
@@ -188,10 +205,10 @@ def create_config_file(config_file):
 
 
 def load_config(config_file):
-    if(not os.path.exists(config_file)):
-        create_config_file(config_file)
+    if(not os.path.exists(f"{config_dir}/{config_file}")):
+        create_config_file(f"{config_dir}/{config_file}")
     try:
-        with open(config_file, "r") as f:
+        with open(f"{config_dir}/{config_file}", "r") as f:
             return json.load(f)
     except (IOError, json.JSONDecodeError) as e:
         print(f"Failed to load config file: {e}")
@@ -204,13 +221,14 @@ def write_json_to_config_file():
     server_priv_key = config_data.get("server", {}).get("PrivateKey", "")
     server_pub_key = config_data.get("server", {}).get("PublicKey", "")
     server_endpoint = config_data.get("server", {}).get("Endpoint", "")
+    server_network_interface = config_data.get("server_vars", {}).get("network_interface", "")
 
 
     wg_config_content = f"""[Interface]
         Address = 10.0.0.1/24
         SaveConfig = true
-        PostUp = iptables -A FORWARD -i %i -j ACCEPT; iptables -t nat -A POSTROUTING -o enp10s0 -j MASQUERADE
-        PostDown = iptables -D FORWARD -i %i -j ACCEPT; iptables -t nat -D POSTROUTING -o enp10s0 -j MASQUERADE
+        PostUp = iptables -A FORWARD -i %i -j ACCEPT; iptables -t nat -A POSTROUTING -o {server_network_interface} -j MASQUERADE
+        PostDown = iptables -D FORWARD -i %i -j ACCEPT; iptables -t nat -D POSTROUTING -o {server_network_interface} -j MASQUERADE
         ListenPort = 51820
         PrivateKey = {server_priv_key}
         """
@@ -226,21 +244,21 @@ def write_json_to_config_file():
         AllowedIPs = 10.0.0.{peer_id}/24
         """
 
-        with open(f"peer{peer_id}-{peer_name}.conf", "w") as f:
+        with open(f"{config_dir}/peer{peer_id}-{peer_name}.conf", "w") as f:
             f.write(f"""[Interface]
         PrivateKey = {peer_priv_key}
         Address = 10.0.0.{peer_id}
         DNS = 1.1.1.1
 
-    [Peer]
-        PublicKey = {server_pub_key}
-        Endpoint = {server_endpoint}
-        AllowedIPs = 0.0.0.0/0
-        PersistentKeepAlive = 25
-            """)
+[Peer]
+    PublicKey = {server_pub_key}
+    Endpoint = {server_endpoint}
+    AllowedIPs = 0.0.0.0/0
+    PersistentKeepAlive = 25
+        """)
 
 
-    with open("wg0.conf", "w") as f:
+    with open(f"{config_dir}/wg0.conf", "w") as f:
         f.write(wg_config_content)
 
     print("Server config updated")
@@ -306,7 +324,7 @@ def setup_wg0conf():
     config_data["server"] = server_config
     config_data["server_software"] = server_software
 
-    with open(config_file, "w") as f:
+    with open(f"{config_dir}/config_file", "w") as f:
         json.dump(config_data, f, indent=4)
 
     write_json_to_config_file()
@@ -316,9 +334,6 @@ def setup_wg0conf():
 
 def restart_wg():
     subprocess.run(["sudo", "systemctl", "restart", "wg-quick@wg0"], text=True).strip()
-
-
-
 
 
 if __name__ == "__main__":
