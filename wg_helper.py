@@ -1,4 +1,4 @@
-# Wireguard helper v0.3
+# Wireguard helper v0.4
 
 import os, subprocess, sys, json
 print("Welcome to SeaBee's Wireguard helper")
@@ -66,8 +66,6 @@ def main():
 
             with open(f"{config_dir}/{config_file}", "w") as f:
                 json.dump(config_data, f, indent=4)
-
-
 
             print("Checking if wg0.conf exists\n")
             setup_wg0conf()
@@ -262,6 +260,8 @@ def write_json_to_config_file():
         f.write(wg_config_content)
 
     print("Server config updated")
+    print("restarting wireguard service")
+    restart_wg()
 
 
 
@@ -334,6 +334,8 @@ def setup_wg0conf():
     write_json_to_config_file()
     
     print("wg0.conf generated for server")
+    print("starting wireguard service")
+    start_wg()
 
 
 def restart_wg():
