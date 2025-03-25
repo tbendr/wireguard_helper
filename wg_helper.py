@@ -5,7 +5,7 @@ print("Welcome to SeaBee's Wireguard helper")
 
 
 config_dir = "/etc/wireguard"
-config_file = "/etc/wireguard/wg_helper.json"
+config_file = "wg_helper.json"
 
 
 # Default configuration
@@ -48,11 +48,11 @@ def main():
                     print(f"Directory {config_dir} not found. Creating now...")
                     os.makedirs(config_dir, exist_ok=True)
 
-                if not os.path.exists(config_file):
+                if not os.path.exists(f"{config_dir}/{config_file}"):
                     print(f"Config file {config_file} not found. Creating now...")
                     create_config_file(config_file)
 
-                config_data = load_config(config_file)
+                config_data = load_config(f"{config_dir}/{config_file}")
                 server_vars = config_data.get("server_vars", {})
 
                 server_network_interface = subprocess.run("ip -o -4 route show to default | awk '{print $5}'", shell=True, capture_output=True, text=True).stdout.strip()
@@ -78,7 +78,7 @@ def main():
         elif choice == "2":
             print("\nPeer info")
 
-            config_data = load_config(config_file)
+            config_data = load_config(f"{config_dir}/{config_file}")
             peer_config = config_data.get("peers", [])
 
             print("Peers")
@@ -119,7 +119,7 @@ def main():
             continue
 
         elif choice == "3":
-            config_data = load_config(config_file)
+            config_data = load_config(f"{config_dir}/{config_file}")
             peers = config_data.get("peers", [])
 
             existing_ids = sorted(peer["id"] for peer in peers)
@@ -215,7 +215,7 @@ def load_config(config_file):
 
 
 def write_json_to_config_file():
-    config_data = load_config(config_file)
+    config_data = load_config(f"{config_dir}/{config_file}")
     peers = config_data.get("peers", [])
 
     server_priv_key = config_data.get("server", {}).get("PrivateKey", "")
@@ -266,7 +266,7 @@ def write_json_to_config_file():
 
 
 def setup_wg0conf():
-    config_data = load_config(config_file)
+    config_data = load_config(f"{config_dir}/{config_file}")
     server_config = config_data.get("server", {})
 
     server_software = config_data.get("server_software", {})
@@ -324,7 +324,7 @@ def setup_wg0conf():
     config_data["server"] = server_config
     config_data["server_software"] = server_software
 
-    with open(f"{config_dir}/config_file", "w") as f:
+    with open(f"{config_dir}/{config_file}", "w") as f:
         json.dump(config_data, f, indent=4)
 
     write_json_to_config_file()
@@ -334,6 +334,11 @@ def setup_wg0conf():
 
 def restart_wg():
     subprocess.run(["sudo", "systemctl", "restart", "wg-quick@wg0"], text=True).strip()
+
+
+def start_wg():
+    subprocess.run(["wg-quick", "up", "wg0"], text=True).strip()
+
 
 
 if __name__ == "__main__":
