@@ -1,4 +1,4 @@
-# Wireguard helper v0.2
+# Wireguard helper v0.3
 
 import os, subprocess, sys, json
 print("Welcome to SeaBee's Wireguard helper")
@@ -216,8 +216,8 @@ def load_config():
 
 def write_json_to_config_file():
     config_data = load_config()
-    peers = config_data.get("peers", [])
 
+    peers = config_data.get("peers", [])
     server_priv_key = config_data.get("server", {}).get("PrivateKey", "")
     server_pub_key = config_data.get("server", {}).get("PublicKey", "")
     server_endpoint = config_data.get("server", {}).get("Endpoint", "")
@@ -272,15 +272,18 @@ def setup_wg0conf():
     server_vars = config_data.get("server_vars", {})
     ufw_is_installed = server_vars.get("ufw", "")
 
-    if ufw_is_installed == None:
-        ufw_output = subprocess.check_output(["which", "ufw"], text=True).strip()
-        if ufw_output is not None:
-            server_vars["ufw"] = True
-            subprocess.run(["ufw", "allow", "51820"])
-        else:
+    if ufw_is_installed is None:
+        try:
+            ufw_output = subprocess.check_output(["which", "ufw"], text=True).strip()
+            if ufw_output is not None:
+                server_vars["ufw"] = True
+                subprocess.run(["ufw", "allow", "51820"])
+            else:
+                server_vars["ufw"] = False
+        except subprocess.CalledProcessError:
             server_vars["ufw"] = False
-        
-        config_data["server_vars"] = ufw_is_installed
+            
+        config_data["server_vars"] = server_vars
 
 
     server_priv_key = config_data.get("server", {}).get("PrivateKey", "")
