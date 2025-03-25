@@ -3,9 +3,13 @@
 import os, subprocess, sys, json
 print("Welcome to SeaBee's Wireguard helper")
 
+if os.geteuid() != 0:
+    print("Script needs to be run as sudo or root!")
+    sys.exit(1)
 
 config_dir = "/etc/wireguard"
 config_file = "wg_helper.json"
+sys_ctl_path = "/etc/sysctl.conf"
 
 
 # Default configuration
@@ -343,7 +347,43 @@ def restart_wg():
 
 
 def start_wg():
-    subprocess.run(["wg-quick", "up", "wg0"], text=True).strip()
+    subprocess.run(["wg-quick", "up", "wg0"], text=True)
+    subprocess.run(["systemctl", "enable", "qg-quick@wg0"], text=True)
+
+
+
+def update_sysctl():
+    try:
+        with open(SYSCTL_CONF, "r") as file:
+            lines = file.readlines()
+
+        modified = False
+        found = False
+
+        for i in range(len(lines)):
+            if "net.ipv4.ip_forward=" in lines[i]:  
+                found = True
+                if lines[i].strip().startswith("#"):  # If commented, uncomment
+                    lines[i] = lines[i].lstrip("#")  # Remove leading #
+                    modified = True
+                if lines[i].strip() != "net.ipv4.ip_forward=1":  # Ensure it's set to 1
+                    lines[i] = "net.ipv4.ip_forward=1\n"
+                    modified = True
+
+        if not found:  # If not found, append it
+            lines.append("\nnet.ipv4.ip_forward=1\n")
+            modified = True
+
+        if modified:
+            with open(SYSCTL_CONF, "w") as file:
+                file.writelines(lines)
+            os.system("sudo sysctl -p")  # Apply changes
+            print("Updated sysctl.conf and applied changes.")
+        else:
+            print("No changes needed.")
+
+    except Exception as e:
+        print(f"Error: {e}")
 
 
 
