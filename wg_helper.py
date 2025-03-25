@@ -1,4 +1,4 @@
-# Wireguard helper v0.1
+# Wireguard helper v0.2
 
 import os, subprocess, sys, json
 print("Welcome to SeaBee's Wireguard helper")
@@ -43,31 +43,31 @@ def main():
             if check_if_wireguard_already_installed() == False:
                 print("wireguard package not found, installing now")
                 install_wireguard()
-
-                if not os.path.exists(config_dir):
-                    print(f"Directory {config_dir} not found. Creating now...")
-                    os.makedirs(config_dir, exist_ok=True)
-
-                if not os.path.exists(f"{config_dir}/{config_file}"):
-                    print(f"Config file {config_file} not found. Creating now...")
-                    create_config_file(config_file)
-
-                config_data = load_config()
-                server_vars = config_data.get("server_vars", {})
-
-                server_network_interface = subprocess.run("ip -o -4 route show to default | awk '{print $5}'", shell=True, capture_output=True, text=True).stdout.strip()
-
-                server_vars["network_interface"] = server_network_interface
-                config_data["server_vars"] = server_vars
-
-                with open(f"{config_dir}/{config_file}", "w") as f:
-                    json.dump(config_data, f, indent=4)
-
-
-
+            
             else:
                 print("wireguard already installed")
-            
+
+
+            if not os.path.exists(config_dir):
+                print(f"Directory {config_dir} not found. Creating now...")
+                os.makedirs(config_dir, exist_ok=True)
+
+            if not os.path.exists(f"{config_dir}/{config_file}"):
+                print(f"Config file {config_file} not found. Creating now...")
+                create_config_file(config_file)
+
+            config_data = load_config()
+            server_vars = config_data.get("server_vars", {})
+
+            server_network_interface = subprocess.run("ip -o -4 route show to default | awk '{print $5}'", shell=True, capture_output=True, text=True).stdout.strip()
+
+            server_vars["network_interface"] = server_network_interface
+            config_data["server_vars"] = server_vars
+
+            with open(f"{config_dir}/{config_file}", "w") as f:
+                json.dump(config_data, f, indent=4)
+
+
 
             print("Checking if wg0.conf exists\n")
             setup_wg0conf()
@@ -171,7 +171,7 @@ def main():
 def check_if_wireguard_already_installed():
     try:
         # Check for the package with different package managers
-        if subprocess.run(["which", "wireguard"], stdout=subprocess.DEVNULL).returncode == 0:
+        if subprocess.run(["which", "wg"], stdout=subprocess.DEVNULL).returncode == 0:
             return True  # Package found in the system PATH
         else:
             return False  # Package not found
@@ -273,8 +273,8 @@ def setup_wg0conf():
     ufw_is_installed = server_vars.get("ufw", "")
 
     if ufw_is_installed == None:
-        ufw_output = subprocess.run(["dpkg", "-l"], text=True, stdout=subprocess.PIPE).stdout
-        if "ufw" in ufw_output:
+        ufw_output = subprocess.check_output(["which", "ufw"], text=True).strip()
+        if ufw_output is not None:
             server_vars["ufw"] = True
             subprocess.run(["ufw", "allow", "51820"])
         else:
