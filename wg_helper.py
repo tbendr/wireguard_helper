@@ -4,12 +4,9 @@ import os, subprocess, sys, json
 print("Welcome to SeaBee's Wireguard helper")
 
 
+config_dir = "/etc/wireguard"
+config_file = "/etc/wireguard/wg_helper.json"
 
-# config_dir = "/etc/wireguard"
-# config_file = "/etc/wireguard/wg_helper.json"
-
-config_dir = ""
-config_file = "wg_helper.json"
 
 # Default configuration
 default_config = {
