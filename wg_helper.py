@@ -52,7 +52,7 @@ def main():
                     print(f"Config file {config_file} not found. Creating now...")
                     create_config_file(config_file)
 
-                config_data = load_config(f"{config_dir}/{config_file}")
+                config_data = load_config()
                 server_vars = config_data.get("server_vars", {})
 
                 server_network_interface = subprocess.run("ip -o -4 route show to default | awk '{print $5}'", shell=True, capture_output=True, text=True).stdout.strip()
@@ -78,7 +78,7 @@ def main():
         elif choice == "2":
             print("\nPeer info")
 
-            config_data = load_config(f"{config_dir}/{config_file}")
+            config_data = load_config()
             peer_config = config_data.get("peers", [])
 
             print("Peers")
@@ -119,7 +119,7 @@ def main():
             continue
 
         elif choice == "3":
-            config_data = load_config(f"{config_dir}/{config_file}")
+            config_data = load_config()
             peers = config_data.get("peers", [])
 
             existing_ids = sorted(peer["id"] for peer in peers)
@@ -204,7 +204,7 @@ def create_config_file(config_file):
         print(f"Failed to create config file: {e}")
 
 
-def load_config(config_file):
+def load_config():
     if(not os.path.exists(f"{config_dir}/{config_file}")):
         create_config_file(f"{config_dir}/{config_file}")
     try:
@@ -215,7 +215,7 @@ def load_config(config_file):
 
 
 def write_json_to_config_file():
-    config_data = load_config(f"{config_dir}/{config_file}")
+    config_data = load_config()
     peers = config_data.get("peers", [])
 
     server_priv_key = config_data.get("server", {}).get("PrivateKey", "")
@@ -266,7 +266,7 @@ def write_json_to_config_file():
 
 
 def setup_wg0conf():
-    config_data = load_config(f"{config_dir}/{config_file}")
+    config_data = load_config()
     server_config = config_data.get("server", {})
 
     server_software = config_data.get("server_software", {})
