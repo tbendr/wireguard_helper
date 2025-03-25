@@ -280,7 +280,7 @@ def setup_wg0conf():
         else:
             server_vars["ufw"] = False
         
-        server_config["server_vars"] = ufw_is_installed
+        config_data["server_vars"] = ufw_is_installed
 
 
     server_priv_key = config_data.get("server", {}).get("PrivateKey", "")
@@ -324,7 +324,6 @@ def setup_wg0conf():
             print("Made no changes to server keys")
     
     config_data["server"] = server_config
-    config_data["server_software"] = server_software
 
     with open(f"{config_dir}/{config_file}", "w") as f:
         json.dump(config_data, f, indent=4)
