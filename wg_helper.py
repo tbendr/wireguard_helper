@@ -159,12 +159,6 @@ def check_if_wireguard_already_installed():
         # Check for the package with different package managers
         if subprocess.run(["which", "wireguard"], stdout=subprocess.DEVNULL).returncode == 0:
             return True  # Package found in the system PATH
-        elif subprocess.run(["dpkg", "-l", "wireguard"], stdout=subprocess.DEVNULL).returncode == 0:  # For apt-based systems
-            return True
-        elif subprocess.run(["rpm", "-q", "wireguard"], stdout=subprocess.DEVNULL).returncode == 0:  # For RPM-based systems
-            return True
-        elif subprocess.run(["pacman", "-Q", "wireguard"], stdout=subprocess.DEVNULL).returncode == 0:  # For Arch-based systems
-            return True
         else:
             return False  # Package not found
     except subprocess.CalledProcessError:
@@ -177,12 +171,6 @@ def install_wireguard():
         if subprocess.run(["which", "apt"], stdout=subprocess.DEVNULL).returncode == 0:
             subprocess.run(["sudo", "apt", "update", "-y"], check=True)
             subprocess.run(["sudo", "apt", "install", "-y", "wireguard"], check=True)
-        elif subprocess.run(["which", "dnf"], stdout=subprocess.DEVNULL).returncode == 0:
-            subprocess.run(["sudo", "dnf", "install", "-y", "wireguard"], check=True)
-        elif subprocess.run(["which", "pacman"], stdout=subprocess.DEVNULL).returncode == 0:
-            subprocess.run(["sudo", "pacman", "-Sy", "--noconfirm", "wireguard"], check=True)
-        elif subprocess.run(["which", "zypper"], stdout=subprocess.DEVNULL).returncode == 0:
-            subprocess.run(["sudo", "zypper", "install", "-y", "wireguard"], check=True)
         else:
             print("Unsupported package manager. Install manually.")
             return
