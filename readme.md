@@ -28,4 +28,6 @@ To install this script:
 
 Need even simpler steps? No worries, i GOCHU
 
-copy and paste this bad boy into a terminal `sudo wget -O "wg_helper.py" https://raw.githubusercontent.com/seabee33/wireguard_helper/refs/heads/main/wg_helper.py && python3 wg_helper.py`
+copy and paste this bad boy into a terminal 
+
+`sudo wget -O "wg_helper.py" https://raw.githubusercontent.com/seabee33/wireguard_helper/refs/heads/main/wg_helper.py && python3 wg_helper.py`
