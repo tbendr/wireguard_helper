@@ -348,7 +348,7 @@ def restart_wg():
 
 def start_wg():
     subprocess.run(["wg-quick", "up", "wg0"], text=True)
-    subprocess.run(["systemctl", "enable", "qg-quick@wg0"], text=True)
+    subprocess.run(["systemctl", "enable", "wg-quick@wg0"], text=True)
 
 
 
