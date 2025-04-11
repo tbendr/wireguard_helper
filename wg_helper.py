@@ -1,391 +1,184 @@
-# Wireguard helper v0.4
-
-import os, subprocess, sys, json
-print("Welcome to SeaBee's Wireguard helper")
+from flask import Flask, request, render_template_string, redirect, url_for, session
+import os, subprocess, shutil, sys
 
 if os.geteuid() != 0:
-    print("Script needs to be run as sudo or root!")
+    print("This script needs to be run as root or sudo, try 'sudo python3 wg_helper.py'")
     sys.exit(1)
 
-config_dir = "/etc/wireguard"
-config_file = "wg_helper.json"
-sys_ctl_path = "/etc/sysctl.conf"
+app = Flask(__name__)
+app.secret_key = os.urandom(24)
 
 
-# Default configuration
-default_config = {
-    "server_vars": {
-        "ufw": None,
-        "network_interface":""
-    },
-    "server": {
-        "Endpoint": "",
-        "ListenPort": 51820,
-        "PrivateKey": "",
-        "PublicKey": ""
-    },
-    "peers": [
-    ]
-}
-
-def main():
-    while True:
-
-        print("\nPlease type a number for what you would like to do")
-        print("1: Install & initilize wireguard")
-        print("2: View & edit peers")
-        print("3: Add new peer")
-
-        print("q: Exit the script")
-
-        choice = input("").strip()
-        print("\n")
+# ===================== #
+ADMIN_PASSWORD = ""
+# ===================== #
 
 
-        if choice == "1":
-            print("Checking if wireguard is already installed")
-            if check_if_wireguard_already_installed() == False:
-                print("wireguard package not found, installing now")
-                install_wireguard()
-            
-            else:
-                print("wireguard already installed")
 
-
-            if not os.path.exists(config_dir):
-                print(f"Directory {config_dir} not found. Creating now...")
-                os.makedirs(config_dir, exist_ok=True)
-
-            if not os.path.exists(f"{config_dir}/{config_file}"):
-                print(f"Config file {config_file} not found. Creating now...")
-                create_config_file(config_file)
-
-            config_data = load_config()
-            server_vars = config_data.get("server_vars", {})
-
-            server_network_interface = subprocess.run("ip -o -4 route show to default | awk '{print $5}'", shell=True, capture_output=True, text=True).stdout.strip()
-
-            server_vars["network_interface"] = server_network_interface
-            config_data["server_vars"] = server_vars
-
-            with open(f"{config_dir}/{config_file}", "w") as f:
-                json.dump(config_data, f, indent=4)
-
-            print("Checking if wg0.conf exists\n")
-            setup_wg0conf()
-
-            continue
-
+@app.route("/", methods=["GET", "POST"])
+def login():
+    LOGIN_HTML = """
+        <!doctype html>
+        <body style='font-family:sans-serif'>
+        <title>WireGuard Helper - Login</title>
+        <h2>Login</h2>
+        <form method="POST">
+            <input type="password" name="password" placeholder="Enter password">
+            <input type="submit" value="Login">
+            {% if error %}<p style="color:red;">{{ error }}</p>{% endif %}
+        </form>
+        </html>
+        """
         
-        elif choice == "2":
-            print("\nPeer info")
-
-            config_data = load_config()
-            peer_config = config_data.get("peers", [])
-
-            print("Peers")
-            for peer in peer_config:
-                peer_id = peer["id"]
-                peer_name = peer["name"]
-                peer_public_key = peer["PublicKey"]
-
-                print(f"ID: {peer_id} - Name: {peer_name} - PublicKey: {peer_public_key}")
-            
-            if input("\nWould you like to delete any peers? (y/n): ") == "y":
-                peer_choice = input("Type peer ID to delete, type 'q' to go back to main menu: ")
-                if peer_choice == "q":
-                    continue
-
-                try:
-                    peer_id_to_delete = int(peer_choice)
-                except ValueError:
-                    print("Invalid ID. Please enter a numeric ID.")
-                    continue
-
-                # Filter out the peer with the matching ID
-                new_peer_config = [peer for peer in peer_config if peer["id"] != peer_id_to_delete]
-
-                if len(new_peer_config) == len(peer_config):
-                    print(f"No peer found with ID {peer_id_to_delete}.")
-                else:
-                    config_data["peers"] = new_peer_config
-
-                    # Save the updated peer list back to the config file
-                    with open(f"{config_dir}/{config_file}", "w") as f:
-                        json.dump(config_data, f, indent=4)
-                    
-                    print(f"\nPeer with ID {peer_id_to_delete} has been deleted.")
-
-                    write_json_to_config_file()
-
-            continue
-
-        elif choice == "3":
-            config_data = load_config()
-            peers = config_data.get("peers", [])
-
-            existing_ids = sorted(peer["id"] for peer in peers)
-
-            # Find available ID by checking gaps
-            existing_ids = sorted(peer["id"] for peer in peers)  # Get all assigned IDs, sorted
-
-            # Start from 2, find the first missing number
-            new_id = 2
-            for id in existing_ids:
-                if id == new_id:
-                    new_id += 1
-                else:
-                    break  # Found a gap, use it
-
-            # Generate new keys
-            private_key = subprocess.check_output(["wg", "genkey"], text=True).strip()
-            public_key = subprocess.check_output(["wg", "pubkey"], input=private_key, text=True).strip()
-
-            # Create new peer info
-            new_peer = {
-                "id": new_id,
-                "name": input("Peer name: "),
-                "PrivateKey": private_key,
-                "PublicKey": public_key
-            }
-
-            peers.append(new_peer)
-            config_data["peers"] = peers
-
-            # Save new peer
-            with open(f"{config_dir}/{config_file}", "w") as f:
-                json.dump(config_data, f, indent=4)
-            
-            print("New peer added")
-            print("Now updating config file")
-            write_json_to_config_file()
-
-        elif choice == "q":
-            print("Exiting")
-            break
-
+    if request.method == "POST":
+        if request.form.get("password") == ADMIN_PASSWORD:
+            session["logged_in"] = True
+            return redirect(url_for("dashboard"))
         else:
-            print("Invalid choice")
+            return render_template_string(LOGIN_HTML, error="Incorrect password, try again")
+    return render_template_string(LOGIN_HTML, error=None)
 
-        print("\n")
 
 
-def check_if_wireguard_already_installed():
-    try:
-        # Check for the package with different package managers
-        if subprocess.run(["which", "wg"], stdout=subprocess.DEVNULL).returncode == 0:
-            return True  # Package found in the system PATH
+@app.route("/dashboard")
+def dashboard():
+    if not session.get("logged_in"):
+        return redirect(url_for("login"))
+    
+    is_wg_installed = shutil.which("wg") is not None
+    is_ufw_installed = ufw_get_path()
+
+    install_wg_button = ""
+    if not is_wg_installed:
+        install_wg_button = """ - 
+        <form action="/install-wireguard" method="POST" style='display:inline'>
+            <input type="submit" value="Install WireGuard">
+        </form>
+        """
+
+    ufw_allow_port_button = """
+    <form action='/ufw_open_port' method='POST' style='display:inline'> <input type='submit' value='Open Port 51820'></form>
+    """
+
+    wg_installed_status = "Installed" if is_wg_installed else "Not installed"
+    ufw_installed_status = "Installed" if is_ufw_installed else "Not installed"
+    if ufw_installed_status == "Installed":
+        ufw_path = ufw_get_path()
+        ufw_enabled_status = subprocess.run(f"{ufw_path} status | awk '/Status:/ {{print $2}}'", shell=True, capture_output=True, text=True).stdout.strip()
+        if ufw_enabled_status == "active":
+            ufw_enabled_status = " & active"
         else:
-            return False  # Package not found
-    except subprocess.CalledProcessError:
-        return False
+            ufw_enabled_status = " & disabled"
+    # server_network_interface = subprocess.run("ip -o -4 route show to default | awk '{print $5}'", shell=True, capture_output=True, text=True).stdout.strip()
+
+    ufw_port_status = ""
+    if ufw_enabled_status == " & active":
+        ufw_wg_port_check = subprocess.run(f"{ufw_path} status | awk '/51820/ {{print $2; exit}}'", shell=True, capture_output=True, text=True).stdout.strip()
+        if ufw_wg_port_check == "":
+            ufw_port_status = f"<br><strong>UFW Wireguard Port:</strong> Not added - {ufw_allow_port_button}<br>"
+        else:
+            ufw_port_status = f"<br><strong>UFW Wireguard Port: </strong>{'Allowed' if ufw_wg_port_check == 'ALLOW' else f'Denied{ufw_allow_port_button}'}"
 
 
+
+    html = f"""
+    <!doctype html>
+    <body style='font-family:sans-serif'>
+    <title>WG Helper</title>
+    <h1>Wireguard Helper v0.1</h1>
+    <a href="/logout">Logout</a>
+    <hr>
+
+    <h2>System status</h2>
+    <strong>Wireguard:</strong> {wg_installed_status}{install_wg_button}<br>
+    <strong>UFW:</strong> {ufw_installed_status}{ufw_enabled_status}
+    {ufw_port_status}
+
+
+    </body>
+    """
+    return html
+
+
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("login"))
+
+
+def ensure_logged_in():
+    if not session.get("logged_in"):
+        return redirect(url_for("login"))
+
+
+@app.route("/install-wireguard", methods=["POST"])
 def install_wireguard():
-    try:
-        # Detect package manager
-        if subprocess.run(["which", "apt"], stdout=subprocess.DEVNULL).returncode == 0:
-            subprocess.run(["sudo", "apt", "update", "-y"], check=True)
-            subprocess.run(["sudo", "apt", "install", "-y", "wireguard"], check=True)
-        else:
-            print("Unsupported package manager. Install manually.")
-            return
+    ensure_logged_in()
 
-        print(f"wireguard installed successfully!")
-    
+    try:
+        subprocess.check_call(["sudo", "apt", "install", "-y", "wireguard"])
     except subprocess.CalledProcessError as e:
-        print(f"Failed to install wireguard: {e}")
+        return f"<p>Installation failed: {e}</p><a href='/dashboard'>Back</a>"
+
+    return redirect(url_for("dashboard"))
 
 
-def create_config_file(config_file):
+@app.route("/ufw_open_port", methods=["POST"])
+def ufw_open_port():
+    ensure_logged_in()
+
+    ufw_path = ufw_get_path()
+
     try:
-        with open(f"{config_dir}/{config_file}", "w") as f:
-            json.dump(default_config, f, indent=4)
-            print(f"Config file {config_file} created successfully.")
-    except IOError as e:
-        print(f"Failed to create config file: {e}")
+        subprocess.check_call([ufw_path, "allow", "51820", "comment", '"Wireguard"'])
+    except subprocess.CalledProcessError as e:
+        return f"<p>Installation failed: {e}</p><a href='/dashboard'>Back</a>"
+
+    return redirect(url_for("dashboard"))
 
 
-def load_config():
-    if(not os.path.exists(f"{config_dir}/{config_file}")):
-        create_config_file(f"{config_dir}/{config_file}")
-    try:
-        with open(f"{config_dir}/{config_file}", "r") as f:
-            return json.load(f)
-    except (IOError, json.JSONDecodeError) as e:
-        print(f"Failed to load config file: {e}")
+def ufw_get_path():
+    ensure_logged_in()
 
+    ufw_dirs = ["/bin", "/sbin", "/usr/bin", "/usr/sbin", "/usr/local/bin", "/usr/local/sbin"]
 
-def write_json_to_config_file():
-    config_data = load_config()
-
-    peers = config_data.get("peers", [])
-    server_priv_key = config_data.get("server", {}).get("PrivateKey", "")
-    server_pub_key = config_data.get("server", {}).get("PublicKey", "")
-    server_endpoint = config_data.get("server", {}).get("Endpoint", "")
-    server_network_interface = config_data.get("server_vars", {}).get("network_interface", "")
-
-
-    wg_config_content = f"""[Interface]
-        Address = 10.0.0.1/24
-        SaveConfig = true
-        PostUp = iptables -A FORWARD -i %i -j ACCEPT; iptables -t nat -A POSTROUTING -o {server_network_interface} -j MASQUERADE
-        PostDown = iptables -D FORWARD -i %i -j ACCEPT; iptables -t nat -D POSTROUTING -o {server_network_interface} -j MASQUERADE
-        ListenPort = 51820
-        PrivateKey = {server_priv_key}
-        """
-
-    for peer in peers:
-        peer_id = peer["id"]
-        peer_name = peer["name"]
-        peer_pub_key = peer["PublicKey"]
-        peer_priv_key = peer["PrivateKey"]
-
-        wg_config_content += f"""[Peer]
-        PublicKey = {peer_pub_key}
-        AllowedIPs = 10.0.0.{peer_id}/24
-        """
-
-        with open(f"{config_dir}/peer{peer_id}-{peer_name}.conf", "w") as f:
-            f.write(f"""[Interface]
-        PrivateKey = {peer_priv_key}
-        Address = 10.0.0.{peer_id}
-        DNS = 1.1.1.1
-
-[Peer]
-    PublicKey = {server_pub_key}
-    Endpoint = {server_endpoint}
-    AllowedIPs = 0.0.0.0/0
-    PersistentKeepAlive = 25
-        """)
-
-
-    with open(f"{config_dir}/wg0.conf", "w") as f:
-        f.write(wg_config_content)
-
-    print("Server config updated")
-    print("restarting wireguard service")
-    restart_wg()
-
-
-
-def setup_wg0conf():
-    config_data = load_config()
-    server_config = config_data.get("server", {})
-
-    server_vars = config_data.get("server_vars", {})
-    ufw_is_installed = server_vars.get("ufw", "")
-
-    if ufw_is_installed is None:
-        try:
-            ufw_output = subprocess.check_output(["which", "ufw"], text=True).strip()
-            if ufw_output is not None:
-                server_vars["ufw"] = True
-                subprocess.run(["ufw", "allow", "51820"])
-            else:
-                server_vars["ufw"] = False
-        except subprocess.CalledProcessError:
-            server_vars["ufw"] = False
-            
-        config_data["server_vars"] = server_vars
-
-
-    server_priv_key = config_data.get("server", {}).get("PrivateKey", "")
-    server_pub_key = config_data.get("server", {}).get("PublicKey", "")
-    server_endpoint = config_data.get("server", {}).get("Endpoint", "")
-
-    if server_endpoint == "":
-        print("Server endpoint empty")
-        new_server_endpoint = input("Enter server address or IP: ")
-        server_config["Endpoint"] = new_server_endpoint
-    else:
-        update_endpoint = input("server endpoint already set\nType 'y' to update endpoint, type 'n' to not make any changes: ")
-        if update_endpoint == "y":
-            new_server_endpoint = input("Enter new server address or IP: ")
-            server_config["Endpoint"] = new_server_endpoint
-        else:
-            print("Made no changes to endpoint")
-
-    if server_priv_key == "":
-        print("No server keys found\nGenerating new keys now")
-        new_server_private_key = subprocess.check_output(["wg", "genkey"], text=True).strip()
-        new_server_public_key = subprocess.check_output(["wg", "pubkey"], input=new_server_private_key, text=True).strip()
-
-        server_config.update({
-            "PrivateKey": new_server_private_key,
-            "PublicKey": new_server_public_key
-        })
-    else:
-        print("\nServer keys already set")
-        update_server_keys = input("Type 'y' to refresh keys, type 'n' to not make any changes: ")
-        if update_server_keys == "y":
-            print("refreshing server keys now")
-            new_server_private_key = subprocess.check_output(["wg", "genkey"], text=True).strip()
-            new_server_public_key = subprocess.check_output(["wg", "pubkey"], input=new_server_private_key, text=True).strip()
-
-            server_config.update({
-                "PrivateKey": new_server_private_key,
-                "PublicKey": new_server_public_key
-            })
-        else:
-            print("Made no changes to server keys")
+    for dir in ufw_dirs:
+        path = os.path.join(dir, "ufw")
+        if os.path.isfile(path) and os.access(path, os.X_OK):
+            return path
     
-    config_data["server"] = server_config
-
-    with open(f"{config_dir}/{config_file}", "w") as f:
-        json.dump(config_data, f, indent=4)
-
-    write_json_to_config_file()
-    
-    print("wg0.conf generated for server")
-    print("starting wireguard service")
-    start_wg()
-
-
-def restart_wg():
-    subprocess.run(["sudo", "systemctl", "restart", "wg-quick@wg0"], text=True).strip()
-
-
-def start_wg():
-    subprocess.run(["wg-quick", "up", "wg0"], text=True)
-    subprocess.run(["systemctl", "enable", "wg-quick@wg0"], text=True)
+    return None
 
 
 
-def update_sysctl():
-    try:
-        with open(SYSCTL_CONF, "r") as file:
-            lines = file.readlines()
 
-        modified = False
-        found = False
 
-        for i in range(len(lines)):
-            if "net.ipv4.ip_forward=" in lines[i]:  
-                found = True
-                if lines[i].strip().startswith("#"):  # If commented, uncomment
-                    lines[i] = lines[i].lstrip("#")  # Remove leading #
-                    modified = True
-                if lines[i].strip() != "net.ipv4.ip_forward=1":  # Ensure it's set to 1
-                    lines[i] = "net.ipv4.ip_forward=1\n"
-                    modified = True
 
-        if not found:  # If not found, append it
-            lines.append("\nnet.ipv4.ip_forward=1\n")
-            modified = True
 
-        if modified:
-            with open(SYSCTL_CONF, "w") as file:
-                file.writelines(lines)
-            os.system("sudo sysctl -p")  # Apply changes
-            print("Updated sysctl.conf and applied changes.")
-        else:
-            print("No changes needed.")
 
-    except Exception as e:
-        print(f"Error: {e}")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
 if __name__ == "__main__":
-    main()
+    app.run(host="0.0.0.0", port=5050)
+
+
+
