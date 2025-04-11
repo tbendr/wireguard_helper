@@ -1,6 +1,6 @@
 # SeaBee's wireguard helper script
 
-This is a python script to make the installation and management of wireguard server side easier
+This is a python script to make the installation and management of wireguard server and client side easier
 
 This script can:
 - Install wireguard
@@ -8,10 +8,11 @@ This script can:
 - Generate peer keys
 - Edit server endpoint
 - Save all the data to a json config file
+- Run a temporary web server to give you an admin panel
 
 Requirements:
 - Python3
-- flask library for flask ("sudo apt install python3-flask" OR "pip install flask")
+- flask library for python ("sudo apt install python3-flask" OR "pip install flask")
 - A linux machine
 - Internet
 
