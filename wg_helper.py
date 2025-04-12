@@ -65,6 +65,7 @@ def dashboard():
     # One liners
     is_wg_installed = shutil.which("wg") is not None
     is_ufw_installed = ufw_get_path()
+    is_iptables_installed = iptables_get_path()
     server_network_interface = config_data.get("server", {}).get("server_network_interface", "")
 
 
@@ -81,7 +82,7 @@ def dashboard():
     """
 
     wg_installed_status = "Installed" if is_wg_installed else "Not installed"
-    ufw_installed_status = "Installed" if is_ufw_installed else "Not installed"
+    ufw_installed_status = "Installed" if is_ufw_installed else "Not installed<br>"
     if ufw_installed_status == "Installed":
         ufw_path = ufw_get_path()
         ufw_enabled_status = subprocess.run(f"{ufw_path} status | awk '/Status:/ {{print $2}}'", shell=True, capture_output=True, text=True).stdout.strip()
@@ -91,6 +92,18 @@ def dashboard():
             ufw_enabled_status = " & disabled <br>"
     else:
         ufw_enabled_status = ""
+
+
+    iptables_installed_status = "Installed" if is_iptables_installed else "Not installed<br>"
+    if iptables_installed_status != "Installed":
+        iptables_installed_status = """ Not installed
+        <form action="/install_iptables" method="POST" style='display:inline'>
+            <input type="submit" value="Install iptables">
+        </form>
+        """
+    else:
+        iptables_installed_status = f"{iptables_installed_status}<br>"
+
 
 
     wg_running_status = ""
@@ -194,6 +207,7 @@ def dashboard():
     {wg_enabled_at_boot}
     <strong>UFW:</strong> {ufw_installed_status}{ufw_enabled_status}
     {ufw_port_status}
+    <strong>iptables:</strong> {iptables_installed_status}
     <strong>Server network interface:</strong> {server_network_interface}
     <hr>
 
@@ -241,6 +255,19 @@ def install_wireguard():
         return f"<p>Installation failed: {e}</p><a href='/dashboard'>Back</a>"
 
     return redirect(url_for("dashboard"))
+
+
+@app.route("/install_iptables", methods=["POST"])
+def install_iptables():
+    ensure_logged_in()
+
+    try:
+        subprocess.check_call(["sudo", "apt", "install", "-y", "iptables"])
+    except subprocess.CalledProcessError as e:
+        return f"<p>Installation failed: {e}</p><a href='/dashboard'>Back</a>"
+
+    return redirect(url_for("dashboard"))
+
 
 
 @app.route("/update_server_endpoint", methods=["POST"])
@@ -376,7 +403,7 @@ def download_peer_config():
     # Compose the WireGuard peer config
     config_text = f"""[Interface]
     PrivateKey = {peer_priv_key}
-    Address = 10.0.0.{peer_id_to_download}/24
+    Address = 10.0.0.{peer_id_to_download}/32
     DNS = 1.1.1.1
 
 [Peer]
@@ -412,8 +439,6 @@ def enable_wg_at_boot():
 
 
 def ufw_get_path():
-    ensure_logged_in()
-
     ufw_dirs = ["/bin", "/sbin", "/usr/bin", "/usr/sbin", "/usr/local/bin", "/usr/local/sbin"]
 
     for dir in ufw_dirs:
@@ -422,6 +447,18 @@ def ufw_get_path():
             return path
     
     return None
+
+
+def iptables_get_path():
+    ufw_dirs = ["/sbin", "/usr/sbin", "/bin", "/usr/bin", "/usr/local/sbin", "/usr/local/bin"]
+
+    for dir in ufw_dirs:
+        path = os.path.join(dir, "iptables")
+        if os.path.isfile(path) and os.access(path, os.X_OK):
+            return path
+    
+    return None
+
 
 
 def run_first_install_setup():
@@ -498,8 +535,8 @@ def update_config(config_data):
     wg_config_content = f"""[Interface]
         Address = 10.0.0.1/24
         SaveConfig = true
-        PostUp = iptables -A FORWARD -i %i -j ACCEPT; iptables -t nat -A POSTROUTING -o {server_network_interface} -j MASQUERADE
-        PostDown = iptables -D FORWARD -i %i -j ACCEPT; iptables -t nat -D POSTROUTING -o {server_network_interface} -j MASQUERADE
+        PostUp = {iptables_get_path()} -A FORWARD -i %i -j ACCEPT; {iptables_get_path()} -t nat -A POSTROUTING -o {server_network_interface} -j MASQUERADE
+        PostDown = {iptables_get_path()} -D FORWARD -i %i -j ACCEPT; {iptables_get_path()} -t nat -D POSTROUTING -o {server_network_interface} -j MASQUERADE
         ListenPort = 51820
         PrivateKey = {server_priv_key}
         """
@@ -513,7 +550,7 @@ def update_config(config_data):
         wg_config_content += f"""
 [Peer]
         PublicKey = {peer_pub_key}
-        AllowedIPs = 10.0.0.{peer_id}/24
+        AllowedIPs = 10.0.0.{peer_id}/32
         """
 
     subprocess.run(["systemctl", "stop", "wg-quick@wg0"], text=True)
