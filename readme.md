@@ -33,5 +33,10 @@ curl -L -o wg_helper.py https://raw.githubusercontent.com/seabee33/wireguard_hel
     
 3. **Run the script with sudo or as root** `sudo python3 wg_helper.py`
 
-4. Access the web panel: Open your browser and go to: `http://<SERVER_IP>:5050`
+4. Access the web panel: Open your browser and go to: `http://<SERVER_IP>:5050` and go through the easy setup steps:
+
+
+## Setup once web panel loaded
+1. Click install button
+2. Click enable at boot button
 
