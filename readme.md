@@ -47,4 +47,5 @@ curl -L -o wg_helper.py https://raw.githubusercontent.com/seabee33/wireguard_hel
 3. generate keys
 4. Add peers with a unique name
 5. download peer config and connect on client device
+6. Don't forget to port forward your server on your modem! (port 51820)
 
