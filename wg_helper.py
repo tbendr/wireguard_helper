@@ -506,7 +506,7 @@ def dashboard():
     <body>
         <div class="header">
             <div class="container header-content">
-                <h1>SeaBee's Wireguard Helper v0.1</h1>
+                <h1>SeaBee's Wireguard Helper v0.2</h1>
                 <div class="navbar">
                     <a href="/logout">Logout</a>
                 </div>
