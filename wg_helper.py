@@ -114,12 +114,14 @@ def dashboard():
         server_priv_key = config_data.get("server", {}).get("PrivateKey", "")
 
         if server_priv_key == "":
-            wg_running_status = "Server keys need to be generated first"
+            wg_running_status = "<strong>Wireguard status:</strong> Server keys need to be generated first"
         else:
             if wg_running_check == "failed":
                 wg_running_status = f"<strong>Wireguard status:</strong> Not running <form action='/start_wg' method='POST' style='display:inline'> <input type='submit' value='Start wireguard'></form><br>"
             else:
                 wg_running_status = f"<strong>Wireguard status:</strong> Running <br>"
+    else:
+        wg_running_status = "<strong>Wireguard status:</strong> Not running, waiting for install"
 
 
 
