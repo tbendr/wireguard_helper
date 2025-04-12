@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template_string, redirect, url_for, session, response
+from flask import Flask, request, render_template_string, redirect, url_for, session, Response
 import os, subprocess, shutil, sys, json
 
 if os.geteuid() != 0:
@@ -16,7 +16,7 @@ app.secret_key = os.urandom(24)
 wireguard_dir = "/etc/wireguard"
 config_file = "wg_helper.json"
 full_config_file_path = os.path.join(wireguard_dir, config_file)
-sys_ctl_path = "/etc/sysctl.conf"
+SYSCTL_CONF = "/etc/sysctl.conf"
 
 
 default_config = {
@@ -71,7 +71,7 @@ def dashboard():
     install_wg_button = ""
     if not is_wg_installed:
         install_wg_button = """ - 
-        <form action="/install-wireguard" method="POST" style='display:inline'>
+        <form action="/install_wireguard" method="POST" style='display:inline'>
             <input type="submit" value="Install WireGuard">
         </form>
         """
@@ -86,9 +86,30 @@ def dashboard():
         ufw_path = ufw_get_path()
         ufw_enabled_status = subprocess.run(f"{ufw_path} status | awk '/Status:/ {{print $2}}'", shell=True, capture_output=True, text=True).stdout.strip()
         if ufw_enabled_status == "active":
-            ufw_enabled_status = " & active"
+            ufw_enabled_status = " & active <br>"
         else:
-            ufw_enabled_status = " & disabled"
+            ufw_enabled_status = " & disabled <br>"
+
+
+    wg_running_status = ""
+    if wg_installed_status == "Installed":
+        wg_running_check = subprocess.run("systemctl is-active wg-quick@wg0", shell=True, capture_output=True, text=True).stdout.strip()
+        if wg_running_check == "failed":
+            wg_running_status = f"<strong>Wireguard status:</strong> Not running <form action='/start_wg' method='POST' style='display:inline'> <input type='submit' value='Start wireguard'></form><br>"
+        else:
+            wg_running_status = f"<strong>Wireguard status:</strong> Running <br>"
+
+
+
+    wg_enabled_at_boot = ""
+    wg_enabled_at_boot_check = subprocess.run(f"systemctl is-enabled wg-quick@wg0", shell=True, capture_output=True, text=True).stdout.strip()
+    if wg_enabled_at_boot_check == "enabled":
+        wg_enabled_at_boot = "<strong>Wireguard autostart at boot:</strong> Enabled<br>"
+    else:
+        wg_enabled_at_boot = "<strong>Wireguard autostart at boot:</strong> DISABLED <form action='/autostart_wg_on_boot' method='POST' style='display:inline'> <input type='submit' value='Autostart Wireguard at boot'></form><br>"
+    
+
+
 
     ufw_port_status = ""
     if ufw_enabled_status == " & active":
@@ -160,13 +181,15 @@ def dashboard():
     html = f"""
     <!doctype html>
     <body style='font-family:sans-serif'>
-    <title>WG Helper</title>
-    <h1>Wireguard Helper v0.1</h1>
+    <title>SeaBee's WG Helper</title>
+    <h1>SeaBee's Wireguard Helper v0.1</h1>
     <a href="/logout">Logout</a>
     <hr>
 
     <h2>System status</h2>
-    <strong>Wireguard:</strong> {wg_installed_status}{install_wg_button}<br>
+    <strong>Wireguard software:</strong> {wg_installed_status}{install_wg_button}<br>
+    {wg_running_status}
+    {wg_enabled_at_boot}
     <strong>UFW:</strong> {ufw_installed_status}{ufw_enabled_status}
     {ufw_port_status}
     <strong>Server network interface:</strong> {server_network_interface}
@@ -206,7 +229,7 @@ def ensure_logged_in():
         return redirect(url_for("login"))
 
 
-@app.route("/install-wireguard", methods=["POST"])
+@app.route("/install_wireguard", methods=["POST"])
 def install_wireguard():
     ensure_logged_in()
 
@@ -226,7 +249,7 @@ def update_server_endpoint():
     config_data = load_config()
     config_data.setdefault("server", {})["Endpoint"] = new_endpoint
 
-    update_config_json(config_data)
+    update_config(config_data)
 
     return redirect(url_for("dashboard"))
 
@@ -256,7 +279,7 @@ def regenerate_server_keys():
     config_data.setdefault("server", {})["PrivateKey"] = private_key
     config_data.setdefault("server", {})["PublicKey"] = public_key
 
-    update_config_json(config_data)
+    update_config(config_data)
 
     return redirect(url_for("dashboard"))
 
@@ -299,7 +322,7 @@ def create_new_peer():
 
     config_data["peers"] = peers
 
-    update_config_json(config_data)
+    update_config(config_data)
 
     return redirect(url_for("dashboard"))
 
@@ -317,10 +340,9 @@ def delete_peer():
 
     config_data["peers"] = new_peer_config
 
-    update_config_json(config_data)
+    update_config(config_data)
 
     return redirect(url_for("dashboard"))
-
 
 
 @app.route("/download_peer_config", methods=["POST"])
@@ -355,7 +377,7 @@ def download_peer_config():
     Address = 10.0.0.{peer_id_to_download}/24
     DNS = 1.1.1.1
 
-    [Peer]
+[Peer]
     PublicKey = {server_pub_key}
     Endpoint = {endpoint}:{listen_port}
     AllowedIPs = 0.0.0.0/0
@@ -377,7 +399,14 @@ def start_wg():
 
     return redirect(url_for("dashboard"))
 
-    
+
+@app.route("/autostart_wg_on_boot", methods=["POST"])
+def enable_wg_at_boot():
+    subprocess.run(["systemctl", "enable", "wg-quick@wg0"], text=True)
+
+    return redirect(url_for("dashboard"))
+
+
 
 
 def ufw_get_path():
@@ -394,21 +423,21 @@ def ufw_get_path():
 
 
 def run_first_install_setup():
+    # Create /etc/wireguard folder
     if not os.path.exists(wireguard_dir):
         os.mkdir(wireguard_dir)
+    
+    # Create config json
     if not os.path.isfile(full_config_file_path):
         with open(full_config_file_path, "w") as f:
             json.dump(default_config, f, indent=4)
-    
-    server_network_interface = subprocess.run("ip -o -4 route show to default | awk '{print $5}'", shell=True, capture_output=True, text=True).stdout.strip()
 
+    # Create wg0.conf
+    if not os.path.isfile("/etc/wireguard/wg0.conf"):
+        update_config(load_config())
 
-def restart_wg():
-    subprocess.run(["systemctl", "restart", "wg-quick@wg0"], text=True).strip()
-
-
-def enable_wg_at_boot():
-    subprocess.run(["systemctl", "enable", "qg-quick@wg0"], text=True)
+    # Port forward
+    update_sysctl()
 
 
 def update_sysctl():
@@ -453,19 +482,15 @@ def load_config():
         return(0)
 
 
-def update_config_json(new_config):
+def update_config(config_data):
     with open(full_config_file_path, "w") as f:
-        json.dump(new_config, f, indent=4)
-
-
-def write_json_to_config_file():
-    config_data = load_config()
+        json.dump(config_data, f, indent=4)
 
     peers = config_data.get("peers", [])
     server_priv_key = config_data.get("server", {}).get("PrivateKey", "")
     server_pub_key = config_data.get("server", {}).get("PublicKey", "")
     server_endpoint = config_data.get("server", {}).get("Endpoint", "")
-    server_network_interface = config_data.get("server_vars", {}).get("network_interface", "")
+    server_network_interface = config_data.get("server", {}).get("server_network_interface", "")
 
 
     wg_config_content = f"""[Interface]
@@ -483,31 +508,19 @@ def write_json_to_config_file():
         peer_pub_key = peer["PublicKey"]
         peer_priv_key = peer["PrivateKey"]
 
-        wg_config_content += f"""[Peer]
+        wg_config_content += f"""
+[Peer]
         PublicKey = {peer_pub_key}
         AllowedIPs = 10.0.0.{peer_id}/24
         """
 
-        with open(f"{config_dir}/peer{peer_id}-{peer_name}.conf", "w") as f:
-            f.write(f"""[Interface]
-        PrivateKey = {peer_priv_key}
-        Address = 10.0.0.{peer_id}
-        DNS = 1.1.1.1
-
-    [Peer]
-    PublicKey = {server_pub_key}
-    Endpoint = {server_endpoint}
-    AllowedIPs = 0.0.0.0/0
-    PersistentKeepAlive = 25
-        """)
-
-
-    with open(f"{config_dir}/wg0.conf", "w") as f:
+    subprocess.run(["systemctl", "stop", "wg-quick@wg0"], text=True)
+    with open("/etc/wireguard/wg0.conf", "w") as f:
         f.write(wg_config_content)
 
     print("Server config updated")
     print("restarting wireguard service")
-    restart_wg()
+    subprocess.run(["systemctl", "start", "wg-quick@wg0"], text=True)
 
 
 
