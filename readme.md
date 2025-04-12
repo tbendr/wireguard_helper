@@ -29,7 +29,7 @@ This Python script simplifies the installation and management of a WireGuard VPN
 sudo apt install curl python3-flask -y
 ```
 
-2 - Download and run the script
+2. Download and run the script
 ```bash
 curl -L -o wg_helper.py https://raw.githubusercontent.com/seabee33/wireguard_helper/main/wg_helper.py
 ```
