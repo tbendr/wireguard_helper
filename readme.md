@@ -42,6 +42,9 @@ curl -L -o wg_helper.py https://raw.githubusercontent.com/seabee33/wireguard_hel
 
 
 ## Setup once web panel loaded
-1. Click install button
-2. Click enable at boot button
+1. Install and activate necessary software in **system status** (Install wireguard, autostart wireguard at boot, install iptables, Open Port 51820 *if ufw is installed*)
+2. Fill in endpoint in options
+3. generate keys
+4. Add peers with a unique name
+5. download peer config and connect on client device
 
