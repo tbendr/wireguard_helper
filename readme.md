@@ -24,8 +24,8 @@ This Python script simplifies the installation and management of a WireGuard VPN
 ## 🚀 Installation & Usage
 
 1. **Download** the script to any directory on your system.
-2. ```bash
-3. wget https://raw.githubusercontent.com/seabee33/wireguard_helper/refs/heads/main/wg_helper.py```
+
+```wget https://raw.githubusercontent.com/seabee33/wireguard_helper/refs/heads/main/wg_helper.py```
 
 4. **Set the admin password** on **line 10** of the file: `ADMIN_PASSWORD = "your_secure_password_here"`
     
