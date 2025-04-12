@@ -7,7 +7,7 @@ if os.geteuid() != 0:
 
 
 # ===================== #
-ADMIN_PASSWORD = ""
+ADMIN_PASSWORD = "PLEASE_CHANGE_ME"
 # ===================== #
 
 
