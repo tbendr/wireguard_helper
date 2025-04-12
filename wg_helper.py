@@ -7,7 +7,7 @@ if os.geteuid() != 0:
 
 
 # ===================== #
-ADMIN_PASSWORD = "PLEASE_CHANGE_ME"
+ADMIN_PASSWORD = ""
 # ===================== #
 
 
@@ -89,6 +89,8 @@ def dashboard():
             ufw_enabled_status = " & active <br>"
         else:
             ufw_enabled_status = " & disabled <br>"
+    else:
+        ufw_enabled_status = ""
 
 
     wg_running_status = ""
