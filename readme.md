@@ -1,28 +1,31 @@
-# SeaBee's wireguard helper script
+# SeaBee's WireGuard Helper Script
 
-This is a python script to make the installation and management of wireguard server and client side easier
+This Python script simplifies the installation and management of a WireGuard VPN server, including client configuration.
 
-This script can:
-- Install wireguard
-- Generate server keys
-- Generate peer keys
-- Edit server endpoint
-- Save all the data to a json config file
-- Run a temporary web server to give you an admin panel
+## 🔧 Features
 
-Requirements:
-- Python3
-- flask library for python ("sudo apt install python3-flask" OR "pip install flask")
-- A linux machine
-- Internet
+- Installs WireGuard and required dependencies
+- Generates server and peer key pairs
+- Edits and manages the WireGuard config file (`wg0.conf`)
+- Stores configuration data in a JSON file for easy reuse
+- Allows editing the server endpoint
+- Starts a temporary web admin panel for WireGuard management
+- Automatically opens port `51820` using UFW (if enabled)
 
+## 📦 Requirements
 
-To install this script:
+- Python 3
+- Flask (`sudo apt install python3-flask` **or** `pip install flask`)
+- A Linux-based system
+- Internet connection
 
-1 - Download the python file to anywhere
+> ⚠️ Note: This script is intended for use on Debian-based systems. Other distros may require package name adjustments.
 
-2 - Set the admin password on line 13 of the file (IMPORTANT)
+## 🚀 Installation & Usage
 
-3 - Run the file with python `python3 wg_helper.py`
+1. **Download** the script to any directory on your system.
 
-4 - Go to your browser on your server or client machine and go to SERVER_IP:5050
+2. **Set the admin password** on **line 13** of the file:
+    ```python
+    ADMIN_PASSWORD = "your_secure_password_here"
+    ```
