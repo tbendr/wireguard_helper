@@ -19,7 +19,7 @@ This Python script simplifies the installation and management of a WireGuard VPN
 - A Linux-based system
 - Internet connection
 
-> ⚠️ Note: This script is intended for use on Debian-based systems. Other distros may require package name adjustments.
+> ⚠️ Note: This script has been tested on debain and may not work on your machine
 
 ## 🚀 Installation & Usage
 
