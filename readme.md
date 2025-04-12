@@ -23,14 +23,13 @@ This Python script simplifies the installation and management of a WireGuard VPN
 
 ## 🚀 Installation & Usage
 
-1. **Download** the script to any directory on your system. `wget https://raw.githubusercontent.com/seabee33/wireguard_helper/refs/heads/main/wg_helper.py`
+1. **Download** the script to any directory on your system.
+2. ```bash
+3. wget https://raw.githubusercontent.com/seabee33/wireguard_helper/refs/heads/main/wg_helper.py```
 
-2. **Set the admin password** on **line 10** of the file:
-    ```python
-    ADMIN_PASSWORD = "your_secure_password_here"
-    ```
+4. **Set the admin password** on **line 10** of the file: `ADMIN_PASSWORD = "your_secure_password_here"`
     
-3. **Run the script with sudo or as root** `sudo python3 wg_helper.py`
+5. **Run the script with sudo or as root** `sudo python3 wg_helper.py`
 
-4. Access the web panel: Open your browser and go to: `http://<SERVER_IP>:5050`
+6. Access the web panel: Open your browser and go to: `http://<SERVER_IP>:5050`
 
