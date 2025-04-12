@@ -99,7 +99,7 @@ def dashboard():
         iptables_installed_status = """ Not installed
         <form action="/install_iptables" method="POST" style='display:inline'>
             <input type="submit" value="Install iptables">
-        </form>
+        </form> <br>
         """
     else:
         iptables_installed_status = f"{iptables_installed_status}<br>"
@@ -109,10 +109,17 @@ def dashboard():
     wg_running_status = ""
     if wg_installed_status == "Installed":
         wg_running_check = subprocess.run("systemctl is-active wg-quick@wg0", shell=True, capture_output=True, text=True).stdout.strip()
-        if wg_running_check == "failed":
-            wg_running_status = f"<strong>Wireguard status:</strong> Not running <form action='/start_wg' method='POST' style='display:inline'> <input type='submit' value='Start wireguard'></form><br>"
+
+        config_data = load_config()
+        server_priv_key = config_data.get("server", {}).get("PrivateKey", "")
+
+        if server_priv_key == "":
+            wg_running_status = "Server keys need to be generated first"
         else:
-            wg_running_status = f"<strong>Wireguard status:</strong> Running <br>"
+            if wg_running_check == "failed":
+                wg_running_status = f"<strong>Wireguard status:</strong> Not running <form action='/start_wg' method='POST' style='display:inline'> <input type='submit' value='Start wireguard'></form><br>"
+            else:
+                wg_running_status = f"<strong>Wireguard status:</strong> Running <br>"
 
 
 
@@ -203,12 +210,13 @@ def dashboard():
 
     <h2>System status</h2>
     <strong>Wireguard software:</strong> {wg_installed_status}{install_wg_button}<br>
-    {wg_running_status}
     {wg_enabled_at_boot}
     <strong>UFW:</strong> {ufw_installed_status}{ufw_enabled_status}
     {ufw_port_status}
     <strong>iptables:</strong> {iptables_installed_status}
-    <strong>Server network interface:</strong> {server_network_interface}
+    <strong>Server network interface:</strong> {server_network_interface}<br>
+    {wg_running_status}
+
     <hr>
 
     <h2>Options</h2>
