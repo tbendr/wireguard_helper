@@ -1,16 +1,11 @@
-FROM ubuntu:22.04
+FROM python:3.11-slim
 
 # Install required packages
 RUN apt-get update && apt-get install -y \
-    python3 \
-    python3-pip \
     wireguard \
     iptables \
     systemd \
     && rm -rf /var/lib/apt/lists/*
-
-# Install Python dependencies
-RUN pip3 install flask
 
 # Create necessary directories
 RUN mkdir -p /etc/wireguard
