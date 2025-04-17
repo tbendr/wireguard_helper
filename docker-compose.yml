@@ -9,5 +9,13 @@ services:
     volumes:
       - /etc/wireguard:/etc/wireguard # Persist WireGuard configuration
     environment:
-      - ADMIN_PASSWORD=your_secure_password_here # Set your admin password here
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-your_secure_password_here} # Use environment variable with fallback
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+        reservations:
+          cpus: "0.1"
+          memory: 128M

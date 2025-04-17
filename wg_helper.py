@@ -7,12 +7,13 @@ if os.geteuid() != 0:
 
 
 # ===================== #
-ADMIN_PASSWORD = ""
+ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', '')
 # ===================== #
 
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024  # 16KB max upload size
 wireguard_dir = "/etc/wireguard"
 config_file = "wg_helper.json"
 full_config_file_path = os.path.join(wireguard_dir, config_file)
@@ -914,4 +915,31 @@ def update_config(config_data):
 
 if __name__ == "__main__":
     run_first_install_setup()
-    app.run(host="0.0.0.0", port=5050)
+    if os.environ.get('FLASK_ENV') == 'production':
+        import gunicorn.app.base
+        
+        class StandaloneApplication(gunicorn.app.base.BaseApplication):
+            def __init__(self, app, options=None):
+                self.options = options or {}
+                self.application = app
+                super().__init__()
+            
+            def load_config(self):
+                for key, value in self.options.items():
+                    self.cfg.set(key.lower(), value)
+            
+            def load(self):
+                return self.application
+        
+        options = {
+            'bind': '0.0.0.0:5050',
+            'workers': 1,
+            'worker_class': 'sync',
+            'timeout': 30,
+            'keepalive': 2,
+            'max_requests': 1000,
+            'max_requests_jitter': 50
+        }
+        StandaloneApplication(app, options).run()
+    else:
+        app.run(host="0.0.0.0", port=5050)
