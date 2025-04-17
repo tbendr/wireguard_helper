@@ -333,12 +333,6 @@ def dashboard():
         </form>
         """
 
-    ufw_allow_port_button = """
-    <form action='/ufw_open_port' method='POST' style='display:inline'> 
-        <input type='submit' value='Open Port 51820' class="btn btn-success">
-    </form>
-    """
-
     ufw_installed_status = "Installed" if is_ufw_installed else "Not installed"
     ufw_installed_class = "success" if is_ufw_installed else "warning"
     
@@ -412,25 +406,6 @@ def dashboard():
             <input type='submit' value='Autostart Wireguard at boot' class="btn btn-success">
         </form>
         """
-
-    ufw_port_status = ""
-    ufw_port_class = ""
-    
-    if is_ufw_installed and ufw_enabled_status == "active":
-        ufw_path = ufw_get_path()
-        ufw_wg_port_check = subprocess.run(f"{ufw_path} status | awk '/51820/ {{print $2; exit}}'", shell=True, capture_output=True, text=True).stdout.strip()
-        if ufw_wg_port_check == "":
-            ufw_port_status = "Not added"
-            ufw_port_class = "danger"
-            ufw_port_button = ufw_allow_port_button
-        else:
-            ufw_port_status = "Allowed" if ufw_wg_port_check == "ALLOW" else "Denied"
-            ufw_port_class = "success" if ufw_wg_port_check == "ALLOW" else "danger"
-            ufw_port_button = "" if ufw_wg_port_check == "ALLOW" else ufw_allow_port_button
-    else:
-        ufw_port_status = "N/A"
-        ufw_port_class = "warning"
-        ufw_port_button = ""
 
     # Endpoint data
     server_endpoint_data = config_data.get("server", {}).get("Endpoint", "")
@@ -534,14 +509,6 @@ def dashboard():
                     <span class="{ufw_installed_class}">{ufw_installed_status}</span>
                     {' &nbsp;&&nbsp; ' + '<span class="' + ufw_enabled_class + '">' + ufw_enabled_status + '</span>' if ufw_enabled_status else ''}
                 </div>
-                
-                {f'''
-                <div class="status-item">
-                    <strong>UFW Wireguard Port:</strong>&nbsp;
-                    <span class="{ufw_port_class}">{ufw_port_status}</span>
-                    {ufw_port_button}
-                </div>
-                ''' if ufw_port_status else ''}
                 
                 <div class="status-item">
                     <strong>iptables:</strong>&nbsp;
@@ -682,39 +649,6 @@ def update_server_endpoint():
     return redirect(url_for("dashboard"))
 
 
-@app.route("/ufw_open_port", methods=["POST"])
-def ufw_open_port():
-    ensure_logged_in()
-
-    ufw_path = ufw_get_path()
-
-    try:
-        subprocess.check_call([ufw_path, "allow", "51820", "comment", '"Wireguard"'])
-    except subprocess.CalledProcessError as e:
-        error_html = f"""
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>UFW Error</title>
-            <style>{CSS}</style>
-        </head>
-        <body>
-            <div class="container">
-                <div class="card">
-                    <h2>UFW Configuration Failed</h2>
-                    <p class="danger">Error: {e}</p>
-                    <a href="/dashboard" class="btn">Back to Dashboard</a>
-                </div>
-            </div>
-        </body>
-        </html>
-        """
-        return error_html
-
-    return redirect(url_for("dashboard"))
-
 @app.route("/regenerate_server_keys", methods=["POST"])
 def regenerate_server_keys():
 
@@ -854,8 +788,6 @@ def enable_wg_at_boot():
     return redirect(url_for("dashboard"))
 
 
-
-
 def ufw_get_path():
     ufw_dirs = ["/bin", "/sbin", "/usr/bin", "/usr/sbin", "/usr/local/bin", "/usr/local/sbin"]
 
@@ -876,7 +808,6 @@ def iptables_get_path():
             return path
     
     return None
-
 
 
 def run_first_install_setup():

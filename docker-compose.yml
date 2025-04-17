@@ -1,0 +1,13 @@
+version: "3"
+
+services:
+  wireguard-helper:
+    build: .
+    container_name: wireguard-helper
+    privileged: true # Required for WireGuard and iptables
+    network_mode: host # Required for proper network access
+    volumes:
+      - /etc/wireguard:/etc/wireguard # Persist WireGuard configuration
+    environment:
+      - ADMIN_PASSWORD=your_secure_password_here # Set your admin password here
+    restart: unless-stopped
